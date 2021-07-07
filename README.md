@@ -3,5 +3,5 @@ This plugin will pick a random player every round start in objective game mode t
 
 ![image](https://i.imgur.com/uyQ1axL.jpeg)
 
-Map Requirements
+# Map Requirements
 - Traitor spawn location (info_target - `info_player_saw`)
