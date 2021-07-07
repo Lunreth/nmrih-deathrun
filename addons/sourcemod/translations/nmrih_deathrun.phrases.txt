@@ -1,0 +1,53 @@
+"Phrases"
+{
+  "traitor_picked"
+  {
+    "#format" "{1:s}"
+    "en"  "{1} is the enemy! Complete the deathrun to win."
+    "es"  "¡{1} es el enemigo! Superen las trampas para ganar."
+  }
+  "traitor_private_message"
+  {
+    "en"  "YOU are the traitor! Use all the traps to kill enemy players."
+    "es"  "¡Eres el traidor! Usa las trampas para matar a los sobrevivientes."
+  }
+  "traitor_center_message"
+  {
+    "en"  "YOU are the traitor! Use the traps to kill enemy players"
+    "es"  "¡Eres el traidor! Usa las trampas para matar a los sobrevivientes"
+  }
+  "traitor_death"
+  {
+    "#format" "{1:s}"
+    "en"  "{1} has been defeated! Survivors win!"
+    "es"  "¡{1} ha sido derrotado! ¡Los sobrevivientes ganan!"
+  }
+  "traitor_extracted"
+  {
+    "#format" "{1:s}"
+    "en"  "{1} wins the round!"
+    "es"  "¡{1} gana la ronda!"
+  }
+  "traitor_left"
+  {
+    "#format" "{1:s}"
+    "en"  "{1} was the traitor and left the game! Restarting round in 30 seconds."
+    "es"  "¡{1} se ha desconectado siendo el traidor! Ronda reinicia en 30 segundos."
+  }
+  "traitor_restart"
+  {
+    "en"  "Round must restart to pick a new enemy."
+    "es"  "Ronda debe reiniciar para elegir a un nuevo enemigo."
+  }
+  "traitor_all_hud"
+  {
+    "#format" "{1:s}"
+    "en"  "Complete deathrun to defeat {1}"
+    "es"  "Evita las trampas para vencer a {1}"
+  }
+  "traitor_indicator"
+  {
+    "en"  "KILL ALL THE PLAYERS"
+    "es"  "ELIMINAR A LOS DEMAS SOBREVIVIENTES"
+  }
+}
