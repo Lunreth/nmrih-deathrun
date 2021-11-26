@@ -4,16 +4,17 @@
 #include <autoexecconfig>
 
 #define PLUGIN_AUTHOR "Ulreth*"
-#define PLUGIN_VERSION "1.0.0" // 3-05-2021
+#define PLUGIN_VERSION "1.0.1" // 25-11-2021
 #define PLUGIN_NAME "[NMRiH] Deathrun"
 
 // MAP REQUIREMENTS:
 // Traitor spawn location (info_target "info_player_saw")
 // Extraction start at round reset (only 1 objective)
 
-// CHANGELOG 1.0.0
+// CHANGELOG 1.0.1
 /*
-- 
+- Fixed wrong color showing up after round start
+- Fixed teleport bug for traitor
 */
 
 #pragma semicolon 1
@@ -137,7 +138,7 @@ public Action Timer_CheckPlayers(Handle timer)
 			if (IsPlayerAlive(i)) AddToPlayerArray(i);
 		}
 	}
-	if (g_PlayersCount >= 1) CreateTimer(0.5, Timer_PickTraitor);
+	if (g_PlayersCount >= 1) CreateTimer(1.0, Timer_PickTraitor);
 	return Plugin_Continue;
 }
 
@@ -466,10 +467,12 @@ public Action Timer_Global(Handle timer)
 				if (i != g_Traitor)
 				{
 					PrintHintText(i, "[Deathrun] %T", "traitor_all_hud", i, g_TraitorName);
+					if (IsPlayerAlive(i)) DispatchKeyValue(i, "glowcolor", "80 200 255");
 				}
 				else
 				{
 					PrintHintText(i, "[Deathrun] %T", "traitor_indicator", i);
+					if (IsPlayerAlive(i)) DispatchKeyValue(i, "glowcolor", "255 0 0");
 				}
 			}
 		}
