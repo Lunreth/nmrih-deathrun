@@ -7,3 +7,5 @@ https://forums.alliedmods.net/showthread.php?p=2751431#post2751431
 
 # Map Requirements
 - Traitor spawn location (info_target - `info_player_saw`)
+- Map full of traps (traitor will trigger them with `func_button`)
+- Long extraction at map start (`infinite time`)
