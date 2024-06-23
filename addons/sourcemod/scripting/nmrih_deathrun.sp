@@ -1,19 +1,30 @@
 #include <sourcemod>
 #include <sdktools>
 #include <sdkhooks>
-#include <autoexecconfig>
+//#include <autoexecconfig>
 
 #define PLUGIN_AUTHOR "Ulreth*"
-#define PLUGIN_VERSION "1.0.1" // 25-11-2021
+#define PLUGIN_VERSION "1.0.3" // 9-05-2024
 #define PLUGIN_NAME "[NMRiH] Deathrun"
 
 // MAP REQUIREMENTS:
-// Traitor spawn location (info_target "info_player_saw")
-// Extraction start at round reset (only 1 objective)
-
-// CHANGELOG 1.0.1
 /*
+- Map name must contain 'deathrun'
+- Traitor spawn location (info_target - "info_player_saw")
+- Extraction start at round reset (only 1 objective)
+*/
+
+// CHANGELOG
+/*
+[1.0.0]
+- First release
+
+[1.0.1]
 - Fixed wrong color showing up after round start
+
+[1.0.2]
+- Improved extraction method for traitor
+- Updated map requirements for gamemode
 - Fixed teleport bug for traitor
 */
 
@@ -27,7 +38,7 @@ bool g_DeathrunMap = false;
 Handle g_hTimer_Global = INVALID_HANDLE;
 
 int g_PlayersCount = 0; // Alive player count
-int g_PlayersArray[9] = {-1,-1,-1,-1,-1,-1,-1,-1,-1}; // Alive player array
+int g_PlayersArray[10] = {-1,-1,-1,-1,-1,-1,-1,-1,-1,-1}; // Alive player array
 
 float g_ExtractLocation[3] = {0.0, 0.0, 0.0};
 float g_TraitorLocation[3] = {0.0, 0.0, 0.0};
@@ -47,23 +58,21 @@ public Plugin myinfo =
 public void OnPluginStart()
 {
 	LoadTranslations("nmrih_deathrun.phrases");
-	AutoExecConfig_SetFile("nmrih_deathrun");
-	AutoExecConfig_SetCreateFile(true);
-	AutoExecConfig_CreateConVar("sm_deathrun_version", PLUGIN_VERSION, PLUGIN_NAME, FCVAR_NONE);
-	cVar_Deathrun_Enable = AutoExecConfig_CreateConVar("sm_deathrun_enable", "1.0", "Enable or disable Deathrun plugin", FCVAR_NONE, true, 0.0, true, 1.0);
-	cVar_Deathrun_Debug = AutoExecConfig_CreateConVar("sm_deathrun_debug", "0.0", "Debug mode for plugin - Will spam messages in console if set to 1", FCVAR_NONE, true, 0.0, true, 1.0);
-	AutoExecConfig_ExecuteFile();
-	AutoExecConfig_CleanFile();
+	CreateConVar("sm_deathrun_version", PLUGIN_VERSION, PLUGIN_NAME, FCVAR_NONE);
+	cVar_Deathrun_Enable = CreateConVar("sm_deathrun_enable", "1.0", "Enable or disable Deathrun plugin", FCVAR_NONE, true, 0.0, true, 1.0);
+	cVar_Deathrun_Debug = CreateConVar("sm_deathrun_debug", "0.0", "Debug mode for plugin - Will spam messages in console if set to 1", FCVAR_NONE, true, 0.0, true, 1.0);
+	AutoExecConfig(true, "nmrih_deathrun");
 	
 	HookEvent("nmrih_practice_ending", Event_PracticeStart);
 	HookEvent("nmrih_reset_map", Event_ResetMap);
 	HookEvent("nmrih_round_begin", Event_RoundBegin);
 	HookEvent("player_spawn", Event_PlayerSpawn, EventHookMode_Post);
-	HookEvent("player_death", Event_PlayerDeath, EventHookMode_Pre);
+	HookEvent("player_death", Event_PlayerDeath);
 	//HookEvent("player_leave", Event_PlayerLeave, EventHookMode_Pre);
 	// PLUS OnMapStart()
 	// PLUS OnTouch()
 	// PLUS OnMapEnd()
+	// PLUS OnClientDisconnect()
 }
 
 public void OnMapStart()
@@ -73,7 +82,7 @@ public void OnMapStart()
 	if (StrContains(map, "deathrun", false) != -1)
 	{
 		g_DeathrunMap = true;
-		g_hTimer_Global = CreateTimer(3.0, Timer_Global, _, TIMER_REPEAT);
+		g_hTimer_Global = CreateTimer(9.0, Timer_Global, _, TIMER_REPEAT);
 		
 		int i = -1;
 		while ((i = FindEntityByClassname(i, "info_target")) != -1)
@@ -133,7 +142,7 @@ public Action Timer_CheckPlayers(Handle timer)
 {
 	for (int i = 1; i <= MaxClients; i++)
 	{
-		if (IsClientInGame(i))
+		if (IsClientInGame(i) && (GetClientTeam(i) == 0))
 		{
 			if (IsPlayerAlive(i)) AddToPlayerArray(i);
 		}
@@ -149,7 +158,11 @@ public Action Timer_PickTraitor(Handle timer)
 	if (g_Traitor > 0)
 	{
 		TeleportEntity(g_Traitor, g_TraitorLocation, NULL_VECTOR, NULL_VECTOR);
+		DispatchKeyValue(g_Traitor, "glowable", "1"); 
+		DispatchKeyValue(g_Traitor, "glowblip", "1");
 		DispatchKeyValue(g_Traitor, "glowcolor", "255 0 0");
+		DispatchKeyValue(g_Traitor, "glowdistance", "9999");
+		AcceptEntityInput(g_Traitor, "enableglow");
 		GetClientName(g_Traitor, g_TraitorName, sizeof(g_TraitorName));
 		PrintToChatAll("[Deathrun] %t", "traitor_picked", g_TraitorName);
 		PrintCenterTextAll("%t", "traitor_picked", g_TraitorName);
@@ -178,13 +191,28 @@ public Action Event_PlayerSpawn(Event event, const char[] name, bool dontBroadca
 	{
 		int userid = event.GetInt("userid");
 		int client = GetClientOfUserId(userid);
-		if (IsPlayerAlive(client))
+		
+		if(GetClientTeam(client) == 0) CreateTimer(0.5, Timer_TrueSpawn, client, TIMER_FLAG_NO_MAPCHANGE);
+	}
+	return Plugin_Continue;
+}
+
+public Action Timer_TrueSpawn(Handle timer, any client)
+{
+	if(IsClientInGame(client))
+	{
+		if(IsPlayerAlive(client))
 		{
-			AddToPlayerArray(client);
 			if (g_Traitor == client)
 			{
+				DispatchKeyValue(client, "glowable", "1"); 
+				DispatchKeyValue(client, "glowblip", "1");
+				DispatchKeyValue(client, "glowcolor", "255 0 0");
+				DispatchKeyValue(client, "glowdistance", "9999");
+				AcceptEntityInput(client, "enableglow");
 				TeleportEntity(g_Traitor, g_TraitorLocation, NULL_VECTOR, NULL_VECTOR);
 			}
+			else AddToPlayerArray(client);
 		}
 	}
 	return Plugin_Continue;
@@ -199,6 +227,11 @@ public Action Event_PlayerDeath(Event event, const char[] name, bool dontBroadca
 		if (client != g_Traitor)
 		{
 			DeletePlayer(client);
+			DispatchKeyValue(client, "glowable", "0"); 
+			DispatchKeyValue(client, "glowblip", "0");
+			DispatchKeyValue(client, "glowcolor", "80 201 255");
+			DispatchKeyValue(client, "glowdistance", "9999");
+			AcceptEntityInput(client, "disableglow");
 		}
 		else
 		{
@@ -230,14 +263,14 @@ public void OnClientDisconnect(int client)
 			PrintCenterTextAll("%t", "traitor_restart", g_TraitorName);
 			if (GetConVarFloat(cVar_Deathrun_Debug) == 1.0)
 			{
-				PrintToServer("[Deathrun] %s was the traitor and left the game! Restarting round in 30 seconds.", g_TraitorName);
-				LogMessage("[Deathrun] %s was the traitor and left the game! Restarting round in 30 seconds.", g_TraitorName);
+				PrintToServer("[Deathrun] %s was the traitor and left the game! Restarting round in 10 seconds.", g_TraitorName);
+				LogMessage("[Deathrun] %s was the traitor and left the game! Restarting round in 10 seconds.", g_TraitorName);
 			}
 			g_Traitor = -1;
-			CreateTimer(30.0, Timer_EndRound);
+			CreateTimer(10.0, Timer_EndRound);
 		}
 		DeletePlayer(client);
-		CheckTraitorWin();
+		//CheckTraitorWin();
 	}
 }
 /*
@@ -261,7 +294,7 @@ public Action Event_PlayerLeave(Event event, const char[] name, bool dontBroadca
 			CreateTimer(30.0, Timer_EndRound);
 		}
 		DeletePlayer(client);
-		CheckTraitorWin();
+		//CheckTraitorWin();
 	}
 	return Plugin_Continue;
 }
@@ -298,6 +331,11 @@ public Action OnTouch(int entity, int client)
 				VariablesToZero();
 			}
 			DeletePlayer(client);
+			DispatchKeyValue(client, "glowable", "0"); 
+			DispatchKeyValue(client, "glowblip", "0");
+			DispatchKeyValue(client, "glowcolor", "80 201 255");
+			DispatchKeyValue(client, "glowdistance", "9999");
+			AcceptEntityInput(client, "disableglow");
 		}
 	}
 	return Plugin_Continue;
@@ -307,7 +345,7 @@ void VariablesToZero()
 {
 	g_Traitor = -1;
 	g_PlayersCount = 0;
-	for (int i = 0; i < MaxClients; i++) g_PlayersArray[i] = -1;
+	for (int i = 0; i <= MaxClients; i++) g_PlayersArray[i] = -1;
 }
 
 bool PluginActive()
@@ -323,50 +361,28 @@ bool PluginActive()
 void AddToPlayerArray(int client)
 {
 	// Double check if was previously added
-	for (int i = 0; i < MaxClients; i++) if (g_PlayersArray[i] == client) return;
-	// Now adds player to array
-	for (int i = 0; i < MaxClients; i++)
-	{
-		if (g_PlayersArray[i] == -1)
-		{
-			g_PlayersArray[i] = client;
-			g_PlayersCount = (g_PlayersCount + 1);
-			DispatchKeyValue(client, "glowable", "1"); 
-			DispatchKeyValue(client, "glowblip", "1");
-			if (i = 0) DispatchKeyValue(client, "glowcolor", "80 201 255");
-			else if (i = 1) DispatchKeyValue(client, "glowcolor", "81 200 255");
-			else if (i = 2) DispatchKeyValue(client, "glowcolor", "81 201 255");
-			else if (i = 3) DispatchKeyValue(client, "glowcolor", "80 202 255");
-			else if (i = 4) DispatchKeyValue(client, "glowcolor", "81 202 255");
-			else if (i = 5) DispatchKeyValue(client, "glowcolor", "82 201 255");
-			else if (i = 6) DispatchKeyValue(client, "glowcolor", "82 202 255");
-			else if (i = 7) DispatchKeyValue(client, "glowcolor", "83 203 255");
-			else if (i = 8) DispatchKeyValue(client, "glowcolor", "83 201 255");
-			DispatchKeyValue(client, "glowdistance", "9999");
-			AcceptEntityInput(client, "enableglow");
-			break;
-		}
-	}
+	g_PlayersArray[client] = client;
+	g_PlayersCount = (g_PlayersCount + 1);
+	
+	DispatchKeyValue(client, "glowable", "1"); 
+	DispatchKeyValue(client, "glowblip", "1");
+	DispatchKeyValue(client, "glowcolor", "80 201 255");
+	DispatchKeyValue(client, "glowdistance", "9999");
+	AcceptEntityInput(client, "enableglow");
 }
 
 void DeletePlayer(int client)
 {
+	g_PlayersCount = (g_PlayersCount - 1);
+	g_PlayersArray[client] = -1;
 	if (g_Traitor == client) g_Traitor = -1;
-	for (int i = 0; i < MaxClients; i++)
-	{
-		if (g_PlayersArray[i] == client)
-		{
-			g_PlayersCount = (g_PlayersCount - 1);
-			g_PlayersArray[i] = -1;
-			break;
-		}
-	}
+	CheckTraitorWin();
 }
 
 int RandomPlayer()
 {
 	int random_client = -1;
-	random_client = g_PlayersArray[GetRandomInt(0, g_PlayersCount-1)];
+	random_client = g_PlayersArray[GetRandomInt(1, g_PlayersCount)];
 	return random_client;
 }
 
@@ -418,7 +434,7 @@ void CheckTraitorWin()
 				LogMessage("[Deathrun] %s wins the round!", g_TraitorName);
 			}
 		}
-		CreateTimer(1.0, Timer_TraitorWin, g_Traitor);
+		CreateTimer(2.0, Timer_TraitorWin, g_Traitor);
 	}
 }
 
@@ -426,31 +442,18 @@ public Action Timer_TraitorWin(Handle timer)
 {
 	if (g_Traitor > 0)
 	{
+		ServerCommand("extractplayer %d", GetClientUserId(g_Traitor));
+		/*
 		int j = -1;
 		while ((j = FindEntityByClassname(j, "func_nmrih_extractionzone")) != -1)
 		{
 			if (IsValidEntity(j))
 			{
 				GetEntPropVector(j, Prop_Data, "m_vecOrigin", g_ExtractLocation);
-				//g_ExtractLocation[2] = g_ExtractLocation[2] + 32.0;
-				/*
-				Handle trace;
-				trace = TR_TraceRayEx(g_ExtractLocation, {90.0, 0.0, 0.0}, MASK_SHOT_HULL, RayType_Infinite);
-				float target_pos[3];
-				if(TR_DidHit(trace))
-				{
-					TR_GetEndPosition(target_pos, trace);
-					target_pos[2] += 32.0;
-				}
-				CloseHandle(trace);
-				
-				g_ExtractLocation[0] = target_pos[0];
-				g_ExtractLocation[1] = target_pos[1];
-				g_ExtractLocation[2] = target_pos[2];
-				*/
 			}
 		}
 		TeleportEntity(g_Traitor, g_ExtractLocation, NULL_VECTOR, NULL_VECTOR);
+		*/
 	}
 	VariablesToZero();
 	return Plugin_Continue;
